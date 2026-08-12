@@ -1,0 +1,24 @@
+# Кэш Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Виртуальное окружение
+.venv/
+venv/
+ENV/
+env/
+
+# Настройки среды разработки (VS Code, PyCharm)
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+
+# Логи и временные файлы
+*.log

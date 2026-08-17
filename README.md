@@ -22,7 +22,7 @@ Copyright (c) 2026 VladisApps / VideoLite Project (https://github.com/telophon2-
 ```
 ---
 
-# 💻 VideoLite 
+# 💻 VideoLite (English README)
 
 [![License: MIT](https://shields.io)](https://opensource.org)
 

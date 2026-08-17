@@ -1,5 +1,5 @@
 # 💻 Videolite (English README below⬇️)
-
+[![Скачать VideoLite: ](https://github.com/telophon2-cloud/VideoLite-Player/releases/tag/1.0.3)
 [![License: MIT](https://shields.io)](https://opensource.org)
 
 Легковесный и быстрый видеоплеер для персональных компьютеров (ПК). Создан для воспроизведения видео без лишней нагрузки на систему.

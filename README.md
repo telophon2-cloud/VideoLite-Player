@@ -22,11 +22,12 @@ Copyright (c) 2026 VladisApps / VideoLite Project (https://github.com/telophon2-
 ```
 ---
 
-#💻 VideoLite 
+# 💻 VideoLite 
 
 [![License: MIT](https://shields.io)](https://opensource.org)
 
 A lightweight and fast video player for personal computers (PCs). It is designed to play video without placing an unnecessary load on the system.
+
 ---
 
 ## 🔥 Features

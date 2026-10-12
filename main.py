@@ -1,18 +1,16 @@
-
 import sys, os
 from PySide6.QtCore import QTime, QUrl, Qt
 from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
-from PySide6.QtMultimediaWidgets import QVideoWidget
 from PySide6.QtWidgets import QApplication, QHBoxLayout, QLabel, QMainWindow, QPushButton, QSlider, QVBoxLayout, QWidget, QMessageBox
-from pymediainfo import MediaInfo
+
+from widgets import WIN95_STYLE, InfoDialog, OpenDialog
+from media_widgets import PlayerDisplayManager
+from torrent_stream import TorrentStreamer
+
 from Crypto.Cipher import AES
 from Crypto.Util import Counter
 
-from widgets import WIN95_STYLE, InfoDialog, OpenDialog
-from torrent_stream import TorrentStreamer
-
-
-
+SECRET_KEY = b"VideoLite_Super_Secret_Key_2026!"
 
 class VideoPlayer(QMainWindow):
     def __init__(self):
@@ -23,31 +21,90 @@ class VideoPlayer(QMainWindow):
         self.current_file_path, self.is_fullscreen = None, False
         self.current_lang = "ru"
 
+        self.seek_step = 5000
+        self.current_speed = 1.0
+
         self.media_player = QMediaPlayer()
         self.audio_output = QAudioOutput()
         self.media_player.setAudioOutput(self.audio_output)
-        self.video_widget = QVideoWidget()
-        self.media_player.setVideoOutput(self.video_widget)
+
+        self.display_manager = PlayerDisplayManager(self.media_player)
+        self.media_player.setVideoOutput(self.display_manager.video_widget)
 
         self.menu_bar = self.menuBar()
 
-        self.file_menu = self.menu_bar.addMenu("Файл")
-        self.open_action = self.file_menu.addAction("Открыть...", self.open_source_dialog, "Ctrl+O")
-        self.info_action = self.file_menu.addAction("Параметры видео", self.show_video_info, "Ctrl+I")
+        self.file_menu = self.menu_bar.addMenu("")
+        self.open_action = self.file_menu.addAction("", self.open_source_dialog, "Ctrl+O")
+        self.info_action = self.file_menu.addAction("", self.show_video_info, "Ctrl+I")
         self.info_action.setEnabled(False)
-        self.file_menu.addSeparator()
-        self.file_menu.addAction("Выйти", self.close, "Alt+F4")
+        self.exit_action = self.file_menu.addAction("", self.close, "Alt+F4")
 
+        self.settings_menu = self.menu_bar.addMenu("")
 
-        self.help_menu = self.menu_bar.addMenu("Помощь")
-        self.help_menu.addAction("О VideoLite...", self.show_about_box)
-        lang_menu = self.help_menu.addMenu("Язык (Language)")
-        lang_menu.addAction("Русский", lambda: self.change_language("ru"))
-        lang_menu.addAction("English", lambda: self.change_language("en"))
+        self.viz_menu = self.settings_menu.addMenu("")
+        self.scope_action = self.viz_menu.addAction("", lambda: self.set_visualizer_mode("scope"))
+        self.scope_action.setCheckable(True)
+        self.scope_action.setChecked(True)
+        self.xp_action = self.viz_menu.addAction("", lambda: self.set_visualizer_mode("xp"))
+        self.xp_action.setCheckable(True)
 
-        self.play_button = QPushButton("Воспроизвести")
+        self.thickness_menu = self.settings_menu.addMenu("")
+        self.thin_action = self.thickness_menu.addAction("", lambda: self.set_line_thickness(1))
+        self.thin_action.setCheckable(True)
+        self.norm_thick_action = self.thickness_menu.addAction("", lambda: self.set_line_thickness(3))
+        self.norm_thick_action.setCheckable(True)
+        self.norm_thick_action.setChecked(True)
+        self.bold_action = self.thickness_menu.addAction("", lambda: self.set_line_thickness(5))
+        self.bold_action.setCheckable(True)
+
+        self.speed_color_menu = self.settings_menu.addMenu("")
+        self.slow_speed_action = self.speed_color_menu.addAction("", lambda: self.set_color_speed(0.1))
+        self.slow_speed_action.setCheckable(True)
+        self.norm_speed_action = self.speed_color_menu.addAction("", lambda: self.set_color_speed(0.3))
+        self.norm_speed_action.setCheckable(True)
+        self.norm_speed_action.setChecked(True)
+        self.fast_speed_action = self.speed_color_menu.addAction("", lambda: self.set_color_speed(0.8))
+        self.fast_speed_action.setCheckable(True)
+
+        self.settings_menu.addSeparator()
+
+        self.video_speed_menu = self.settings_menu.addMenu("")
+        self.speed_05_action = self.video_speed_menu.addAction("0.5x", lambda: self.set_playback_speed(0.5))
+        self.speed_05_action.setCheckable(True)
+        self.speed_10_action = self.video_speed_menu.addAction("1.0x", lambda: self.set_playback_speed(1.0))
+        self.speed_10_action.setCheckable(True)
+        self.speed_10_action.setChecked(True)
+        self.speed_15_action = self.video_speed_menu.addAction("1.5x", lambda: self.set_playback_speed(1.5))
+        self.speed_15_action.setCheckable(True)
+        self.speed_20_action = self.video_speed_menu.addAction("2.0x", lambda: self.set_playback_speed(2.0))
+        self.speed_20_action.setCheckable(True)
+        self.aspect_menu = self.settings_menu.addMenu("")
+        self.aspect_auto = self.aspect_menu.addAction("Auto", lambda: self.set_aspect_ratio(Qt.AspectRatioMode.IgnoreAspectRatio))
+        self.aspect_auto.setCheckable(True)
+        self.aspect_auto.setChecked(True)
+        self.aspect_169 = self.aspect_menu.addAction("16:9", lambda: self.set_aspect_ratio(Qt.AspectRatioMode.KeepAspectRatioByExpanding))
+        self.aspect_169.setCheckable(True)
+        self.aspect_43 = self.aspect_menu.addAction("4:3", lambda: self.set_aspect_ratio(Qt.AspectRatioMode.KeepAspectRatio))
+        self.aspect_43.setCheckable(True)
+
+        self.seek_menu = self.settings_menu.addMenu("")
+        self.seek_2s = self.seek_menu.addAction("", lambda: self.set_seek_step(2000))
+        self.seek_2s.setCheckable(True)
+        self.seek_5s = self.seek_menu.addAction("", lambda: self.set_seek_step(5000))
+        self.seek_5s.setCheckable(True)
+        self.seek_5s.setChecked(True)
+        self.seek_10s = self.seek_menu.addAction("", lambda: self.set_seek_step(10000))
+        self.seek_10s.setCheckable(True)
+
+        self.help_menu = self.menu_bar.addMenu("")
+        self.about_action = self.help_menu.addAction("", self.show_about_box)
+        self.lang_menu = self.help_menu.addMenu("")
+        self.lang_ru_action = self.lang_menu.addAction("Русский", lambda: self.change_language("ru"))
+        self.lang_en_action = self.lang_menu.addAction("English", lambda: self.change_language("en"))
+
+        self.play_button = QPushButton()
         self.play_button.clicked.connect(self.toggle_play)
-        self.open_button = QPushButton("Открыть...")
+        self.open_button = QPushButton()
         self.open_button.clicked.connect(self.open_source_dialog)
 
         self.time_slider = QSlider(Qt.Orientation.Horizontal)
@@ -81,21 +138,93 @@ class VideoPlayer(QMainWindow):
 
         self.main_layout = QVBoxLayout()
         self.main_layout.setContentsMargins(8, 8, 8, 8)
-        self.main_layout.addWidget(self.video_widget, stretch=1)
+
+        self.main_layout.addWidget(self.display_manager, stretch=1)
         self.main_layout.addWidget(self.control_panel)
 
         self.central_widget = QWidget()
         self.central_widget.setLayout(self.main_layout)
         self.setCentralWidget(self.central_widget)
-        self.check_arguments()
-    def change_language(self, lang_code):
 
+        self.change_language("ru")
+        self.check_arguments()
+
+    def set_visualizer_mode(self, mode):
+        self.display_manager.visualizer.mode = mode
+        self.scope_action.setChecked(mode == "scope")
+        self.xp_action.setChecked(mode == "xp")
+
+    def set_line_thickness(self, px):
+        if hasattr(self.display_manager.visualizer, 'line_thickness'):
+            self.display_manager.visualizer.line_thickness = px
+        self.thin_action.setChecked(px == 1)
+        self.norm_thick_action.setChecked(px == 3)
+        self.bold_action.setChecked(px == 5)
+
+    def set_color_speed(self, speed):
+        if hasattr(self.display_manager.visualizer, 'color_speed'):
+            self.display_manager.visualizer.color_speed = speed
+        self.slow_speed_action.setChecked(speed == 0.1)
+        self.norm_speed_action.setChecked(speed == 0.3)
+        self.fast_speed_action.setChecked(speed == 0.8)
+
+    def set_playback_speed(self, speed):
+        self.current_speed = speed
+        self.media_player.setPlaybackRate(speed)
+        self.speed_05_action.setChecked(speed == 0.5)
+        self.speed_10_action.setChecked(speed == 1.0)
+        self.speed_15_action.setChecked(speed == 1.5)
+        self.speed_20_action.setChecked(speed == 2.0)
+
+    def set_aspect_ratio(self, mode):
+        self.display_manager.video_widget.setAspectRatioMode(mode)
+        self.aspect_auto.setChecked(mode == Qt.AspectRatioMode.IgnoreAspectRatio)
+        self.aspect_169.setChecked(mode == Qt.AspectRatioMode.KeepAspectRatioByExpanding)
+        self.aspect_43.setChecked(mode == Qt.AspectRatioMode.KeepAspectRatio)
+
+    def set_seek_step(self, ms):
+        self.seek_step = ms
+        self.seek_2s.setChecked(ms == 2000)
+        self.seek_5s.setChecked(ms == 5000)
+        self.seek_10s.setChecked(ms == 10000)
+
+    def change_language(self, lang_code):
         self.current_lang = lang_code
         is_playing = self.media_player.playbackState() == QMediaPlayer.PlaybackState.PlayingState
 
         if lang_code == "ru":
             self.file_menu.setTitle("Файл")
+            self.open_action.setText("Открыть...")
+            self.info_action.setText("Параметры видео")
+            self.exit_action.setText("Выйти")
+
+            self.settings_menu.setTitle("Настройки")
+            self.viz_menu.setTitle("Визуализация")
+            self.scope_action.setText("Осциллограф")
+            self.xp_action.setText("WMP 9 Стиль")
+
+            self.thickness_menu.setTitle("Толщина линий")
+            self.thin_action.setText("Тонкая (1px)")
+            self.norm_thick_action.setText("Стандартная (3px)")
+            self.bold_action.setText("Жирная (5px)")
+
+            self.speed_color_menu.setTitle("Скорость цвета")
+            self.slow_speed_action.setText("Медленно")
+            self.norm_speed_action.setText("Нормально")
+            self.fast_speed_action.setText("Быстро")
+
+            self.video_speed_menu.setTitle("Скорость видео")
+            self.aspect_menu.setTitle("Соотношение сторон")
+
+            self.seek_menu.setTitle("Шаг перемотки")
+            self.seek_2s.setText("2 секунды")
+            self.seek_5s.setText("5 секунд")
+            self.seek_10s.setText("10 секунд")
+
             self.help_menu.setTitle("Помощь")
+            self.about_action.setText("О VideoLite...")
+            self.lang_menu.setTitle("Язык (Language)")
+
             self.play_button.setText("Пауза" if is_playing else "Воспроизвести")
             self.open_button.setText("Открыть...")
             if not self.current_file_path:
@@ -103,12 +232,41 @@ class VideoPlayer(QMainWindow):
 
         elif lang_code == "en":
             self.file_menu.setTitle("File")
+            self.open_action.setText("Open...")
+            self.info_action.setText("Video Properties")
+            self.exit_action.setText("Exit")
+
+            self.settings_menu.setTitle("Settings")
+            self.viz_menu.setTitle("Visualization")
+            self.scope_action.setText("Oscilloscope")
+            self.xp_action.setText("WMP 9 Style")
+
+            self.thickness_menu.setTitle("Line Thickness")
+            self.thin_action.setText("Thin (1px)")
+            self.norm_thick_action.setText("Standard (3px)")
+            self.bold_action.setText("Bold (5px)")
+
+            self.speed_color_menu.setTitle("Color Cycle Speed")
+            self.slow_speed_action.setText("Slow")
+            self.norm_speed_action.setText("Normal")
+            self.fast_speed_action.setText("Fast")
+
+            self.video_speed_menu.setTitle("Playback Speed")
+            self.aspect_menu.setTitle("Aspect Ratio")
+
+            self.seek_menu.setTitle("Seek Step")
+            self.seek_2s.setText("2 Seconds")
+            self.seek_5s.setText("5 Seconds")
+            self.seek_10s.setText("10 Seconds")
+
             self.help_menu.setTitle("Help")
+            self.about_action.setText("About VideoLite...")
+            self.lang_menu.setTitle("Language")
+
             self.play_button.setText("Pause" if is_playing else "Play")
             self.open_button.setText("Open...")
             if not self.current_file_path:
                 self.setWindowTitle("VideoLite")
-
     def open_source_dialog(self):
         dialog = OpenDialog(self)
         if dialog.exec():
@@ -128,9 +286,9 @@ class VideoPlayer(QMainWindow):
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key.Key_Right:
-            self.media_player.setPosition(min(self.media_player.duration(), self.media_player.position() + 5000))
+            self.media_player.setPosition(min(self.media_player.duration(), self.media_player.position() + self.seek_step))
         elif event.key() == Qt.Key.Key_Left:
-            self.media_player.setPosition(max(0, self.media_player.position() - 5000))
+            self.media_player.setPosition(max(0, self.media_player.position() - self.seek_step))
         elif event.key() in (Qt.Key.Key_Space, Qt.Key.Key_F, Qt.Key.Key_Escape):
             if event.key() == Qt.Key.Key_Space: self.toggle_play()
             elif event.key() == Qt.Key.Key_F: self.toggle_fullscreen()
@@ -142,30 +300,43 @@ class VideoPlayer(QMainWindow):
         self.is_fullscreen = not self.is_fullscreen
         self.menu_bar.setVisible(not self.is_fullscreen)
         self.control_panel.setVisible(not self.is_fullscreen)
-        self.main_layout.setContentsMargins(0 if self.is_fullscreen else 8, 0 if self.is_fullscreen else 8, 0 if self.is_fullscreen else 8, 0 if self.is_fullscreen else 8)
-        self.video_widget.setStyleSheet("border: none;" if self.is_fullscreen else "border: 3px inset #808080;")
-        self.showFullScreen() if self.is_fullscreen else self.showNormal()
+
+        if self.is_fullscreen:
+            self.main_layout.setContentsMargins(0, 0, 0, 0)
+            self.display_manager.video_widget.setStyleSheet("border: none;")
+
+            if self.display_manager.currentIndex() == 1:
+                screen_geom = QApplication.primaryScreen().geometry()
+                half_height = screen_geom.height() // 4
+                self.main_layout.setContentsMargins(0, half_height, 0, half_height)
+
+            self.showFullScreen()
+        else:
+            self.main_layout.setContentsMargins(8, 8, 8, 8)
+            self.display_manager.video_widget.setStyleSheet("border: 3px inset #808080;")
+            self.showNormal()
 
     def check_arguments(self):
-        if len(sys.argv) > 1 and os.path.exists(str(sys.argv[1])):
-            self.load_video(str(sys.argv[1]))
+        if len(sys.argv) > 1 and os.path.exists(str(sys.argv)):
+            self.load_video(str(sys.argv))
 
     def load_video(self, path):
         self.current_file_path = path
-
-
         is_vl_file = False
 
+        is_audio = self.display_manager.update_display_mode(path)
+        self.fullscreen_button.setEnabled(not is_audio)
 
         if path.endswith(".vl"):
             try:
-                self.setWindowTitle("VideoLite - Дешифрование..." if self.current_lang == "ru" else "VideoLite - Decrypting...")
+                msg_decrypt = "VideoLite - Дешифрование..." if self.current_lang == "ru" else "VideoLite - Decrypting..."
+                self.setWindowTitle(msg_decrypt)
                 is_vl_file = True
 
                 with open(path, "rb") as f_in:
                     iv = f_in.read(16)
                     if len(iv) < 16:
-                        raise ValueError("Файл поврежден")
+                        raise ValueError("Файл поврежден" if self.current_lang == "ru" else "File corrupted")
 
                     ctr = Counter.new(128, initial_value=int.from_bytes(iv, byteorder='big'))
                     cipher = AES.new(SECRET_KEY, AES.MODE_CTR, counter=ctr)
@@ -182,11 +353,12 @@ class VideoPlayer(QMainWindow):
                 self.media_player.setSource(QUrl.fromLocalFile(self.temp_playing_file))
 
             except Exception as e:
-                QMessageBox.critical(self, "Ошибка" if self.current_lang == "ru" else "Error", f"Не удалось открыть файл .vl!\n{str(e)}")
+                err_title = "Ошибка" if self.current_lang == "ru" else "Error"
+                err_body = f"Не удалось открыть файл .vl!\n{str(e)}" if self.current_lang == "ru" else f"Failed to open .vl file!\n{str(e)}"
+                QMessageBox.critical(self, err_title, err_body)
                 self.setWindowTitle("VideoLite")
                 return
         else:
-
             self.media_player.setSource(QUrl.fromLocalFile(path))
             if hasattr(self, 'temp_playing_file') and os.path.exists(self.temp_playing_file):
                 try: os.remove(self.temp_playing_file)
@@ -194,11 +366,11 @@ class VideoPlayer(QMainWindow):
 
         self.play_button.setText("Пауза" if self.current_lang == "ru" else "Pause")
 
-
         if is_vl_file:
-            self.media_player.setPlaybackRate(0.5)
+            self.media_player.setPlaybackRate(self.current_speed * 0.5)
         else:
-            self.media_player.setPlaybackRate(1.0)
+            self.media_player.setPlaybackRate(self.current_speed)
+
         self.media_player.play()
         self.info_button.setEnabled(True)
         self.info_action.setEnabled(True)
@@ -229,11 +401,14 @@ class VideoPlayer(QMainWindow):
     def set_position(self, position): self.media_player.setPosition(position)
 
     def closeEvent(self, event):
-
         if hasattr(self, 'temp_playing_file') and os.path.exists(self.temp_playing_file):
             try: os.remove(self.temp_playing_file)
             except: pass
         super().closeEvent(event)
+
+    def show_video_info(self):
+        if not self.current_file_path:
+            return
 
     def show_about_box(self):
         about_box = QMessageBox(self)
@@ -245,19 +420,19 @@ class VideoPlayer(QMainWindow):
             about_box.setWindowTitle("О VideoLite")
             info_text = (
                  "<b>VideoLite Player Beta v1.0.3</b><br><br>"
-                "Поддержите нас: <a href='https://www.donationalerts.com/r/vladisapps'>Donationalerts</a><br>"
-                "Наш <a href='https://github.com/telophon2-cloud/VideoLite-Player'>GitHub</a><br><br>"
+                "Поддержите нас: <a href='https://donationalerts.com'>Donationalerts</a><br>"
+                "Наш <a href='https://github.com'>GitHub</a><br><br>"
                 "Это Бета Версия и в ней могут присутствовать ошибки.<br>"
                 "При нахождении ошибки сообщать сюда:<br>"
-                "<b>Telogram:</b> <a href='t.me/f3h7a'>Наш менеджер</a><br>"
+                "<b>Telegram:</b> <a href='t.me/f3h7a'>Наш менеджер</a><br>"
                 "© 2026 VladisApps"
             )
         else:
             about_box.setWindowTitle("About VideoLite")
             info_text = (
                 "<b>VideoLite Player Beta v1.0.3</b><br><br>"
-                "Support us: <a href='https://www.donationalerts.com/r/vladisapps'>Donationalerts</a><br>"
-                "Our <a href='https://github.com/telophon2-cloud/VideoLite-Player'>GitHub</a><br><br>"
+                "Support us: <a href='https://donationalerts.com'>Donationalerts</a><br>"
+                "Our <a href='https://github.com'>GitHub</a><br><br>"
                 "This is a Beta Version and it may contain bugs.<br>"
                 "If you find a bug, please report it here:<br>"
                 "<b>Telegram:</b> <a href='t.me/f3h7a'>Our manager</a><br>"
@@ -265,10 +440,6 @@ class VideoPlayer(QMainWindow):
             )
         about_box.setText(info_text)
         about_box.exec()
-
-    def show_video_info(self):
-        if not self.current_file_path:
-            return
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

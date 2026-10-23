@@ -419,7 +419,7 @@ class VideoPlayer(QMainWindow):
         if self.current_lang == "ru":
             about_box.setWindowTitle("О VideoLite")
             info_text = (
-                 "<b>VideoLite Player Beta v1.0.3</b><br><br>"
+                 "<b>VideoLite Player Beta v1.0.4</b><br><br>"
                 "Поддержите нас: <a href='https://donationalerts.com'>Donationalerts</a><br>"
                 "Наш <a href='https://github.com'>GitHub</a><br><br>"
                 "Это Бета Версия и в ней могут присутствовать ошибки.<br>"
@@ -430,7 +430,7 @@ class VideoPlayer(QMainWindow):
         else:
             about_box.setWindowTitle("About VideoLite")
             info_text = (
-                "<b>VideoLite Player Beta v1.0.3</b><br><br>"
+                "<b>VideoLite Player Beta v1.0.4</b><br><br>"
                 "Support us: <a href='https://donationalerts.com'>Donationalerts</a><br>"
                 "Our <a href='https://github.com'>GitHub</a><br><br>"
                 "This is a Beta Version and it may contain bugs.<br>"

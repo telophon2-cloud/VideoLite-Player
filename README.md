@@ -24,7 +24,7 @@ Copyright (c) 2026 VladisApps / VideoLite Project (https://github.com/telophon2-
 ---
 
 # 💻 VideoLite (English README)
-[![Download VideoLite ](https://github.com/telophon2-cloud/VideoLite-Player/releases/tag/1.0.4_BIG_UPDATE)]
+[![Download VideoLite ](https://github.com/telophon2-cloud/VideoLite-Player/releases/tag/1.0.4_BIG_UPDATE)
 
 [![License: MIT](https://shields.io)](https://opensource.org)
 

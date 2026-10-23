@@ -1,5 +1,5 @@
 # 💻 Videolite (English README below⬇️)
-[![Скачать VideoLite](https://github.com/telophon2-cloud/VideoLite-Player/releases/tag/1.0.3)
+[![Скачать VideoLite](https://github.com/telophon2-cloud/VideoLite-Player/releases/tag/1.0.4_BIG_UPDATE)
 
 [![License: MIT](https://shields.io)](https://opensource.org)
 
